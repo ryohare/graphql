@@ -1,33 +1,34 @@
 // Package graphql provides a low level GraphQL client.
 //
-//  // create a client (safe to share across requests)
-//  client := graphql.NewClient("https://machinebox.io/graphql")
+//	// create a client (safe to share across requests)
+//	client := graphql.NewClient("https://machinebox.io/graphql")
 //
-//  // make a request
-//  req := graphql.NewRequest(`
-//      query ($key: String!) {
-//          items (id:$key) {
-//              field1
-//              field2
-//              field3
-//          }
-//      }
-//  `)
+//	// make a request
+//	req := graphql.NewRequest(`
+//	    query ($key: String!) {
+//	        items (id:$key) {
+//	            field1
+//	            field2
+//	            field3
+//	        }
+//	    }
+//	`)
 //
-//  // set any variables
-//  req.Var("key", "value")
+//	// set any variables
+//	req.Var("key", "value")
 //
-//  // run it and capture the response
-//  var respData ResponseStruct
-//  if err := client.Run(ctx, req, &respData); err != nil {
-//      log.Fatal(err)
-//  }
+//	// run it and capture the response
+//	var respData ResponseStruct
+//	if err := client.Run(ctx, req, &respData); err != nil {
+//	    log.Fatal(err)
+//	}
 //
-// Specify client
+// # Specify client
 //
 // To specify your own http.Client, use the WithHTTPClient option:
-//  httpclient := &http.Client{}
-//  client := graphql.NewClient("https://machinebox.io/graphql", graphql.WithHTTPClient(httpclient))
+//
+//	httpclient := &http.Client{}
+//	client := graphql.NewClient("https://machinebox.io/graphql", graphql.WithHTTPClient(httpclient))
 package graphql
 
 import (
@@ -100,9 +101,11 @@ func (c *Client) runWithJSON(ctx context.Context, req *Request, resp interface{}
 	var requestBody bytes.Buffer
 	requestBodyObj := struct {
 		Query     string                 `json:"query"`
+		Operation string                 `json:"operation,omitempty"`
 		Variables map[string]interface{} `json:"variables"`
 	}{
 		Query:     req.q,
+		Operation: req.op,
 		Variables: req.vars,
 	}
 	if err := json.NewEncoder(&requestBody).Encode(requestBodyObj); err != nil {
@@ -110,6 +113,7 @@ func (c *Client) runWithJSON(ctx context.Context, req *Request, resp interface{}
 	}
 	c.logf(">> variables: %v", req.vars)
 	c.logf(">> query: %s", req.q)
+	c.logf(">> operation: %s", req.op)
 	gr := &graphResponse{
 		Data: resp,
 	}
@@ -223,7 +227,8 @@ func (c *Client) runWithPostFields(ctx context.Context, req *Request, resp inter
 
 // WithHTTPClient specifies the underlying http.Client to use when
 // making requests.
-//  NewClient(endpoint, WithHTTPClient(specificHTTPClient))
+//
+//	NewClient(endpoint, WithHTTPClient(specificHTTPClient))
 func WithHTTPClient(httpclient *http.Client) ClientOption {
 	return func(client *Client) {
 		client.httpClient = httpclient
@@ -238,7 +243,7 @@ func UseMultipartForm() ClientOption {
 	}
 }
 
-//ImmediatelyCloseReqBody will close the req body immediately after each request body is ready
+// ImmediatelyCloseReqBody will close the req body immediately after each request body is ready
 func ImmediatelyCloseReqBody() ClientOption {
 	return func(client *Client) {
 		client.closeReq = true
@@ -265,12 +270,23 @@ type graphResponse struct {
 // Request is a GraphQL request.
 type Request struct {
 	q     string
+	op    string
 	vars  map[string]interface{}
 	files []File
 
 	// Header represent any request headers that will be set
 	// when the request is made.
 	Header http.Header
+}
+
+// NewRequest makes a new Request with the specified string.
+func NewRequestWithOp(q, op string) *Request {
+	req := &Request{
+		q:      q,
+		op:     op,
+		Header: make(map[string][]string),
+	}
+	return req
 }
 
 // NewRequest makes a new Request with the specified string.
